@@ -6,19 +6,19 @@ import (
 
 type AST struct {
 	Provider string
-	Tables   []TabelAST
+	Tables   []*TabelAST
 }
 
 type TabelAST struct {
 	Name       string
-	Colmuns    []ColmunAST
-	References []ReferenceAST
+	Colmuns    []*ColmunAST
+	References []*ReferenceAST
 }
 
 type ColmunAST struct {
 	Name       string
 	Data_type  string
-	Attributes AttributesAST
+	Attributes *AttributesAST
 }
 
 type ReferenceAST struct {
@@ -27,11 +27,11 @@ type ReferenceAST struct {
 	SourceCol   string
 }
 
-type AttributesAST map[string]AttributeAST
+type AttributesAST map[string]*AttributeAST
 
 type AttributeAST struct {
 	Name   string
-	Values []AttributeArgAST
+	Values []*AttributeArgAST
 }
 
 type AttributeArgAST struct {
@@ -40,15 +40,15 @@ type AttributeArgAST struct {
 }
 
 var tokenizer *Tokenizer
-var parseAttrFuncMap map[string]func(Token, []AttributeArgAST, *ColmunAST) error
+var parseAttrFuncMap map[string]func(*Token, []*AttributeArgAST, *ColmunAST) error
 
 var ast *AST
 var currentTableAst *TabelAST
 
-func Parse(localTokenizer *Tokenizer) (AST, error) {
+func Parse(localTokenizer *Tokenizer) (*AST, error) {
 	//init
 	tokenizer = localTokenizer
-	parseAttrFuncMap = map[string]func(Token, []AttributeArgAST, *ColmunAST) error{
+	parseAttrFuncMap = map[string]func(*Token, []*AttributeArgAST, *ColmunAST) error{
 		"id":             parseIdAttr,
 		"default":        parseDefaultAttr,
 		"auto_increment": parseAutoIncrementAttr,
@@ -57,58 +57,69 @@ func Parse(localTokenizer *Tokenizer) (AST, error) {
 	}
 
 	tok := tokenizer.NextToken()
-	ast = &AST{"sqlite", []TabelAST{}}
+	ast = &AST{"sqlite", []*TabelAST{}}
+
 	for tok.TokenType != T_EOF {
 		if tok.TokenType == T_TABLE {
 			tableDefAst, err := parseTable()
 			if err != nil {
-				return AST{}, err
+				return nil, err
 			}
 			ast.Tables = append(ast.Tables, tableDefAst)
+		} else if tok.TokenType != T_EOL {
+			return nil, createError(fmt.Sprintf("Unexpected token '%s'", tok.Literal), tok.Line, tok.Col)
 		}
 		tok = tokenizer.NextToken()
 	}
 
-	return *ast, nil
+	return ast, nil
 }
 
-func parseTable() (TabelAST, error) {
+func parseTable() (*TabelAST, error) {
 	// table <TableName>
 	tok := tokenizer.NextToken()
 	if tok.TokenType != T_IDEN {
-		return TabelAST{}, createError(
-			"Missing '<Table Name>' after 'table'",
-			tok.Line,
-			tok.Col,
-		)
+		if tok.TokenType == T_EOL || tok.TokenType == T_EOF {
+			return nil, createError(
+				"Missing '<Table Name>' after 'table'",
+				tok.Line,
+				tok.Col,
+			)
+		} else {
+			return nil, createError(
+				"'<Table Name>' must start with a letter or underscore",
+				tok.Line,
+				tok.Col,
+			)
+		}
 	}
 
-	tableAst := &TabelAST{tok.Literal, []ColmunAST{}, []ReferenceAST{}}
+	tableAst := &TabelAST{tok.Literal, []*ColmunAST{}, []*ReferenceAST{}}
 	currentTableAst = tableAst
 
 	exists, _ := getTableByName(tok.Literal)
 	if exists {
-		return TabelAST{}, createError(
+		return nil, createError(
 			fmt.Sprintf("Table with name '%s' already declared", tok.Literal), tok.Line, tok.Col)
 	}
 
 	tok = tokenizer.NextToken()
 	if tok.TokenType != T_EOL {
-		return TabelAST{}, createError("Expected end of line", tok.Line, tok.Col)
+		return nil, createError("Expected end of line", tok.Line, tok.Col)
 	}
 
 	err := parseCols()
 
-	return *tableAst, err
+	return tableAst, err
 }
 
-func getTableByName(name string) (bool, TabelAST) {
+func getTableByName(name string) (bool, *TabelAST) {
 	for _, table := range ast.Tables {
 		if name == table.Name {
 			return true, table
 		}
 	}
-	return false, TabelAST{}
+	return false, nil
 }
 
 func parseCols() error {
@@ -125,7 +136,7 @@ func parseCols() error {
 			return createError("Missing 'end' keyword", tok.Line, tok.Col)
 		}
 
-		colAst := &ColmunAST{tok.Literal, "", AttributesAST{}}
+		colAst := &ColmunAST{tok.Literal, "", &AttributesAST{}}
 
 		if tok.TokenType != T_IDEN {
 			return createError(fmt.Sprintf("Unexpected token '%s'", tok.Literal), tok.Line, tok.Col)
@@ -133,8 +144,7 @@ func parseCols() error {
 
 		colAst.Name = tok.Literal
 
-		exists := checkIfColExists(tok.Literal, currentTableAst)
-		if exists {
+		if checkIfColExists(tok.Literal, currentTableAst) {
 			return createError(
 				fmt.Sprintf("Colmun with name '%s' already declared", tok.Literal),
 				tok.Line,
@@ -152,7 +162,7 @@ func parseCols() error {
 			return err
 		}
 
-		currentTableAst.Colmuns = append(currentTableAst.Colmuns, *colAst)
+		currentTableAst.Colmuns = append(currentTableAst.Colmuns, colAst)
 		tok = tokenizer.NextToken()
 	}
 
@@ -173,9 +183,9 @@ func parseColType(colAst *ColmunAST) error {
 	if tok.TokenType != T_IDEN {
 		if tok.TokenType == T_RAW {
 			colAst.Data_type = "raw"
-			colAst.Attributes["raw"] = AttributeAST{
+			(*colAst.Attributes)["raw"] = &AttributeAST{
 				"raw",
-				[]AttributeArgAST{{tok.Literal, "string"}},
+				[]*AttributeArgAST{{tok.Literal, "string"}},
 			}
 			tokenizer.NextToken()
 		} else {
@@ -190,67 +200,62 @@ func parseColType(colAst *ColmunAST) error {
 
 func ParseColAttributes(colAst *ColmunAST) error {
 	tok := tokenizer.NextToken()
-	attributes := AttributesAST{}
-	if colAst.Attributes != nil {
-		attributes = colAst.Attributes
-	}
+
 	for tok.TokenType != T_EOL {
 
 		if tok.TokenType != T_ATTR {
 			return createError(fmt.Sprintf("Unexpected token '%s'", tok.Literal), tok.Line, tok.Col)
 		}
 
-		attrToken := tok
+		mtok, args, err := parseColAttr(tok)
 
-		args, err := parseFuncArgs(&tok)
 		if err != nil {
 			return err
 		}
 
-		err = parseAttr(attrToken, args, colAst)
+		err = parseAttr(tok, args, colAst)
 		if err != nil {
 			return err
 		}
+
+		tok = mtok
 	}
-
-	colAst.Attributes = attributes
-
 	return nil
 }
 
-func parseFuncArgs(tok *Token) ([]AttributeArgAST, error) {
-	*tok = tokenizer.NextToken()
-	values := []AttributeArgAST{}
+func parseColAttr(ptok *Token) (*Token, []*AttributeArgAST, error) {
+	tok := tokenizer.NextToken()
+	values := []*AttributeArgAST{}
 	if tok.TokenType == T_LEFT_PAREN {
-		*tok = tokenizer.NextToken()
+		tok = tokenizer.NextToken()
 		if tok.TokenType == T_STRING || tok.TokenType == T_RAW {
 
 			attrValues, err := getAttrArgs(tok)
 			if err != nil {
-				return values, err
+				return nil, nil, err
 			}
 
 			values = attrValues
-			*tok = tokenizer.NextToken()
+			tok = tokenizer.NextToken()
 		} else if tok.TokenType == T_RIGHT_PAREN {
-			*tok = tokenizer.NextToken()
-			return values, nil
+			tok = tokenizer.NextToken()
+			return tok, values, nil
 		} else {
-			return values, createError(fmt.Sprintf("Unexpected token '%s'", tok.Literal), tok.Line, tok.Col)
+			return nil, nil, createError(fmt.Sprintf("Unexpected token '%s'", tok.Literal), tok.Line, tok.Col)
 		}
 	}
 
-	return values, nil
+	return tok, values, nil
 }
 
-func getAttrArgs(tok *Token) ([]AttributeArgAST, error) {
-	attrArgs := []AttributeArgAST{}
+func getAttrArgs(tok *Token) ([]*AttributeArgAST, error) {
+	attrArgs := []*AttributeArgAST{}
 
 	for {
-		attrArg := AttributeArgAST{}
+		attrArg := &AttributeArgAST{}
 		if tok.TokenType == T_STRING {
 			if tokenizer.PeekToken().TokenType == T_EOF {
-				return attrArgs, createError("Unterminated string", tok.Line, tok.Col)
+				return nil, createError("Unterminated string", tok.Line, tok.Col)
 			}
 			attrArg.Type = "string"
 		} else {
@@ -260,21 +265,20 @@ func getAttrArgs(tok *Token) ([]AttributeArgAST, error) {
 		attrArg.Value = tok.Literal
 		attrArgs = append(attrArgs, attrArg)
 
-		*tok = tokenizer.NextToken()
+		tok = tokenizer.NextToken()
 
 		if tok.TokenType == T_RIGHT_PAREN {
 			break
 		} else if tok.TokenType != T_COMMA {
-			return attrArgs, createError(fmt.Sprintf("Unexpected token '%s'", tok.Literal), tok.Line, tok.Col)
+			return nil, createError(fmt.Sprintf("Unexpected token '%s'", tok.Literal), tok.Line, tok.Col)
 		}
 
-		*tok = tokenizer.NextToken()
+		tok = tokenizer.NextToken()
 	}
-
 	return attrArgs, nil
 }
 
-func parseAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) error {
+func parseAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
 	f, exists := parseAttrFuncMap[tok.Literal]
 	if !exists {
 		return createError(fmt.Sprintf("Unknown attribute @%s", tok.Literal), tok.Line, tok.Col)
@@ -283,47 +287,47 @@ func parseAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) error {
 	return f(tok, args, colAst)
 }
 
-func parseIdAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) error {
+func parseIdAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
 	if len(args) != 0 {
 		return createError("@id takes no parameters", tok.Line, tok.Col)
 	}
-	colAst.Attributes[tok.Literal] = AttributeAST{tok.Literal, args}
+	(*colAst.Attributes)[tok.Literal] = &AttributeAST{tok.Literal, args}
 	return nil
 }
 
-func parseDefaultAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) error {
+func parseDefaultAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
 	if len(args) != 1 {
 		return createError("@default takes one parameters", tok.Line, tok.Col)
 	}
-	colAst.Attributes[tok.Literal] = AttributeAST{tok.Literal, args}
+	(*colAst.Attributes)[tok.Literal] = &AttributeAST{tok.Literal, args}
 	return nil
 }
 
-func parseAutoIncrementAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) error {
+func parseAutoIncrementAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
 	if len(args) != 0 {
 		return createError("@auto_increment takes no parameters", tok.Line, tok.Col)
 	}
-	colAst.Attributes[tok.Literal] = AttributeAST{tok.Literal, args}
+	(*colAst.Attributes)[tok.Literal] = &AttributeAST{tok.Literal, args}
 	return nil
 }
 
-func parseUniqueAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) error {
+func parseUniqueAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
 	if len(args) != 0 {
 		return createError("@unique takes no parameters", tok.Line, tok.Col)
 	}
-	colAst.Attributes[tok.Literal] = AttributeAST{tok.Literal, args}
+	(*colAst.Attributes)[tok.Literal] = &AttributeAST{tok.Literal, args}
 	return nil
 }
 
-func parseNullableAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) error {
+func parseNullableAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
 	if len(args) != 0 {
 		return createError("@nullable takes no parameters", tok.Line, tok.Col)
 	}
-	colAst.Attributes[tok.Literal] = AttributeAST{tok.Literal, args}
+	(*colAst.Attributes)[tok.Literal] = &AttributeAST{tok.Literal, args}
 	return nil
 }
 
-func parseReferenceAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) error {
+func parseReferenceAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
 	if len(args) != 2 {
 		return createError("@reference takes two parameters", tok.Line, tok.Col)
 	}
@@ -341,7 +345,7 @@ func parseReferenceAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) er
 		)
 	}
 
-	if !checkIfColExists(args[1].Value, &table) {
+	if !checkIfColExists(args[1].Value, table) {
 		return createError(
 			fmt.Sprintf("no such col '%s' on table '%s'", args[1].Value, table.Name),
 			tok.Line,
@@ -351,7 +355,7 @@ func parseReferenceAttr(tok Token, args []AttributeArgAST, colAst *ColmunAST) er
 
 	currentTableAst.References = append(
 		currentTableAst.References,
-		ReferenceAST{args[0].Value, args[1].Value, colAst.Name},
+		&ReferenceAST{args[0].Value, args[1].Value, colAst.Name},
 	)
 	return nil
 }

@@ -7,7 +7,6 @@ import (
 )
 
 func main() {
-
 	cfg, err := ParseArgs()
 	if err != nil {
 		fmt.Printf("%v\n", err)

@@ -29,8 +29,8 @@ const (
 	T_ERROR   = "Error"
 )
 
-func createToken(tokenType TokenType, value string, line int, col int) Token {
-	return Token{
+func createToken(tokenType TokenType, value string, line int, col int) *Token {
+	return &Token{
 		TokenType: tokenType,
 		Literal:   value,
 		Line:      line,
@@ -38,7 +38,7 @@ func createToken(tokenType TokenType, value string, line int, col int) Token {
 	}
 }
 
-func getToken(literal string, line int, col int) Token {
+func getToken(literal string, line int, col int) *Token {
 	var tokenType TokenType = T_IDEN
 
 	switch literal {
@@ -72,7 +72,7 @@ func NewTokenizer(input string) *Tokenizer {
 	}
 }
 
-func (t *Tokenizer) NextToken() Token {
+func (t *Tokenizer) NextToken() *Token {
 
 	ch := t.readChar()
 
@@ -134,7 +134,7 @@ func (t *Tokenizer) NextToken() Token {
 	return createToken(T_ILLEGAL, string(ch), t.line, startCol)
 }
 
-func (t *Tokenizer) PeekToken() Token {
+func (t *Tokenizer) PeekToken() *Token {
 	line := t.line
 	col := t.col
 	pos := t.pos
@@ -178,7 +178,7 @@ func (t *Tokenizer) readIden() string {
 	for {
 		ch := t.readChar()
 
-		if !isLetter(ch) {
+		if !isLetter(ch) && !isNumber(ch) {
 			break
 		}
 

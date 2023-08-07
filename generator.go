@@ -16,7 +16,7 @@ const (
 
 var provider Provider = sqlite
 var types map[string]Type
-var attrFuncMap map[string]func(attr AttributeAST) (string, error)
+var attrFuncMap map[string]func(attr *AttributeAST) (string, error)
 
 func initValues() {
 	INT := Type{
@@ -53,7 +53,7 @@ func initValues() {
 		"blob":     BLOB,
 	}
 
-	attrFuncMap = map[string]func(AttributeAST) (string, error){
+	attrFuncMap = map[string]func(*AttributeAST) (string, error){
 		"id":             handleIdAttr,
 		"default":        handleDefaultAttr,
 		"auto_increment": handleAutoIncrementAttr,
@@ -61,7 +61,7 @@ func initValues() {
 	}
 }
 
-func GenerateSQL(ast AST) (string, error) {
+func GenerateSQL(ast *AST) (string, error) {
 
 	initValues()
 
@@ -85,7 +85,7 @@ func GenerateSQL(ast AST) (string, error) {
 	return builder.String(), nil
 }
 
-func generateTableSQL(tableAST TabelAST) (string, error) {
+func generateTableSQL(tableAST *TabelAST) (string, error) {
 	if !isValidTableName(tableAST.Name) {
 		return "", errors.New(fmt.Sprintf("Error: Bad name for table '%s'", tableAST.Name))
 	}
@@ -114,7 +114,7 @@ func generateTableSQL(tableAST TabelAST) (string, error) {
 	return builder.String(), nil
 }
 
-func handleRef(ref ReferenceAST) string {
+func handleRef(ref *ReferenceAST) string {
 	return fmt.Sprintf(
 		"\tFOREIGN KEY %s REFERENCES %s(%s),\n",
 		ref.SourceCol,
@@ -124,7 +124,7 @@ func handleRef(ref ReferenceAST) string {
 }
 
 func handleColmun(
-	colmun ColmunAST,
+	colmun *ColmunAST,
 	tableName string,
 ) (string, error) {
 
@@ -143,7 +143,7 @@ func handleColmun(
 	builder.WriteString(fmt.Sprintf("%s %s", colmun.Name, colmunType))
 
 	hasNullableAttr := false
-	for _, attr := range colmun.Attributes {
+	for _, attr := range *colmun.Attributes {
 		if attr.Name == "nullable" {
 			hasNullableAttr = true
 		}
@@ -163,7 +163,7 @@ func handleColmun(
 	return builder.String(), nil
 }
 
-func handleAttr(attr AttributeAST) (string, error) {
+func handleAttr(attr *AttributeAST) (string, error) {
 	if attr.Name == "raw" {
 		return "", nil
 	}
@@ -178,14 +178,14 @@ func handleAttr(attr AttributeAST) (string, error) {
 	return sqlStr, err
 }
 
-func handleIdAttr(attr AttributeAST) (string, error) {
+func handleIdAttr(attr *AttributeAST) (string, error) {
 	if len(attr.Values) != 0 {
 		return "", errors.New("Error: id takes no parameters")
 	}
 	return "PRIMARY KEY UNIQUE", nil
 }
 
-func handleDefaultAttr(attr AttributeAST) (string, error) {
+func handleDefaultAttr(attr *AttributeAST) (string, error) {
 	output := "DEFAULT "
 	if len(attr.Values) != 1 {
 		return "", errors.New("Error: default takes one parameter")
@@ -200,25 +200,25 @@ func handleDefaultAttr(attr AttributeAST) (string, error) {
 	return output, nil
 }
 
-func handleAutoIncrementAttr(attr AttributeAST) (string, error) {
+func handleAutoIncrementAttr(attr *AttributeAST) (string, error) {
 	if len(attr.Values) > 0 {
 		return "", errors.New("Error: auto_increment takes no parameters")
 	}
 	return "AUTO_INCREMENT", nil
 }
 
-func handleNullableAttr(attr AttributeAST) (string, error) {
+func handleNullableAttr(attr *AttributeAST) (string, error) {
 	if len(attr.Values) > 0 {
 		return "", errors.New("Error: nullable takes no parameters")
 	}
 	return "NULL", nil
 }
 
-func getType(colmun ColmunAST) (string, error) {
+func getType(colmun *ColmunAST) (string, error) {
 	var colmunDataTypeRes string
 
 	if colmun.Data_type == "raw" {
-		attr, exists := colmun.Attributes["raw"]
+		attr, exists := (*colmun.Attributes)["raw"]
 		if !exists {
 			return "", errors.New("Error: Expected raw attribute")
 		}

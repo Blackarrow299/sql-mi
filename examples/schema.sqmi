@@ -1,8 +1,10 @@
 table users
 	id int @id @auto_increment
+	created_at datetime @default(`NOW()`)
 end
 
-table world
+table contact
 	name `varchar(255)` @default("text") @nullable
 	user_id int @reference("users", "id")
+	created_at datetime @default(`NOW()`)
 end
