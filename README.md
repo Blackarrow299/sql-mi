@@ -1,5 +1,4 @@
-Note: This Project is for Learning Purposes
-Please be aware that the project is designed solely for learning purposes. It is not intended to be used in production environments 
+Note: This project is built for Learning Purposes. It is not intended to be used in production environments 
 
 
 # **Sql-mi**
