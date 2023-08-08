@@ -40,13 +40,13 @@ Suppose you have a file named `schema.txt` containing the following syntax:
 ```plaintext
 table users
 	id int @id @auto_increment
-	created_at datetime @default(`NOW()`)
+	created_at datetime @default(`CURRENT_TIMESTAMP`)
 end
 
 table contacts
 	name `varchar(255)` @default("text") @nullable
 	user_id int @reference("users", "id") @onDelete("RESTRICT") @onUpdate("CASCADE")
-	created_at datetime @default(`NOW()`)
+	created_at datetime @default(`CURRENT_TIMESTAMP`)
 end
 ```
 
