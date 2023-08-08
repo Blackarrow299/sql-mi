@@ -115,12 +115,28 @@ func generateTableSQL(tableAST *TabelAST) (string, error) {
 }
 
 func handleRef(ref *ReferenceAST) string {
-	return fmt.Sprintf(
-		"\tFOREIGN KEY %s REFERENCES %s(%s),\n",
-		ref.SourceCol,
-		ref.TargetTable,
-		ref.TargetCol,
+	builder := strings.Builder{}
+
+	builder.WriteString(
+		fmt.Sprintf(
+			"\tFOREIGN KEY %s REFERENCES %s(%s)",
+			ref.SourceCol,
+			ref.TargetTable,
+			ref.TargetCol,
+		),
 	)
+
+	if len(ref.OnDelete) > 0 {
+		builder.WriteString(fmt.Sprintf(" ON DELETE %s", ref.OnDelete))
+	}
+
+	if len(ref.OnUpdate) > 0 {
+		builder.WriteString(fmt.Sprintf(" ON UPDATE %s", ref.OnUpdate))
+	}
+
+	builder.WriteString(",\n")
+
+	return builder.String()
 }
 
 func handleColmun(
@@ -191,7 +207,7 @@ func handleDefaultAttr(attr *AttributeAST) (string, error) {
 		return "", errors.New("Error: default takes one parameter")
 	}
 
-	if attr.Values[0].Type == "SqlFunction" {
+	if attr.Values[0].Type == "raw" {
 		output += fmt.Sprintf("%s", attr.Values[0].Value)
 	} else {
 		output += fmt.Sprintf("'%s'", attr.Values[0].Value)

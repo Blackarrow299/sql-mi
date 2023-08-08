@@ -25,6 +25,8 @@ type ReferenceAST struct {
 	TargetTable string
 	TargetCol   string
 	SourceCol   string
+	OnDelete    string
+	OnUpdate    string
 }
 
 type AttributesAST map[string]*AttributeAST
@@ -54,6 +56,8 @@ func Parse(localTokenizer *Tokenizer) (*AST, error) {
 		"auto_increment": parseAutoIncrementAttr,
 		"nullable":       parseNullableAttr,
 		"reference":      parseReferenceAttr,
+		"onDelete":       parseOnDeleteAttr,
+		"onUpdate":       parseOnUpdateAttr,
 	}
 
 	configurable = []string{"provider", "url"}
@@ -310,7 +314,7 @@ func getAttrArgs(tok *Token) ([]*AttributeArgAST, error) {
 			}
 			attrArg.Type = "string"
 		} else {
-			attrArg.Type = "SqlFunction"
+			attrArg.Type = "raw"
 		}
 
 		attrArg.Value = tok.Literal
@@ -406,9 +410,66 @@ func parseReferenceAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) 
 
 	currentTableAst.References = append(
 		currentTableAst.References,
-		&ReferenceAST{args[0].Value, args[1].Value, colAst.Name},
+		&ReferenceAST{args[0].Value, args[1].Value, colAst.Name, "", ""},
 	)
 	return nil
+}
+
+func parseOnDeleteAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
+	if len(args) != 1 {
+		return createError("@onDelete takes one parameters", tok.Line, tok.Col)
+	}
+
+	if args[0].Type != "string" {
+		return createError("@onDelete Expected string value", tok.Line, tok.Col)
+	}
+
+	ref, exists := getRefByColName(colAst.Name)
+
+	if !exists {
+		return createError(
+			"To use the @onDelete directive, you must first declare a reference using @reference",
+			tok.Line,
+			tok.Col,
+		)
+	}
+
+	ref.OnDelete = args[0].Value
+
+	return nil
+}
+
+func parseOnUpdateAttr(tok *Token, args []*AttributeArgAST, colAst *ColmunAST) error {
+	if len(args) != 1 {
+		return createError("@onUpdate takes one parameters", tok.Line, tok.Col)
+	}
+
+	if args[0].Type != "string" {
+		return createError("@onUpdate Expected string value", tok.Line, tok.Col)
+	}
+
+	ref, exists := getRefByColName(colAst.Name)
+
+	if !exists {
+		return createError(
+			"To use the @onUpdate directive, you must first declare a reference using @reference",
+			tok.Line,
+			tok.Col,
+		)
+	}
+
+	ref.OnUpdate = args[0].Value
+
+	return nil
+}
+
+func getRefByColName(colName string) (*ReferenceAST, bool) {
+	for _, ref := range currentTableAst.References {
+		if colName == ref.SourceCol {
+			return ref, true
+		}
+	}
+	return nil, false
 }
 
 func createError(msg string, line int, col int) error {
