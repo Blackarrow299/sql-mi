@@ -65,7 +65,7 @@ func GenerateSQL(ast *AST) (string, error) {
 
 	initValues()
 
-	if !isProviderAvailable(ast.Provider) {
+	if !isProviderAvailable(ast.Configuration["provider"]) {
 		return "", errors.New("Error: Provider not supported")
 	}
 

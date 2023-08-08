@@ -5,8 +5,8 @@ import (
 )
 
 type AST struct {
-	Provider string
-	Tables   []*TabelAST
+	Configuration map[string]string
+	Tables        []*TabelAST
 }
 
 type TabelAST struct {
@@ -41,7 +41,7 @@ type AttributeArgAST struct {
 
 var tokenizer *Tokenizer
 var parseAttrFuncMap map[string]func(*Token, []*AttributeArgAST, *ColmunAST) error
-
+var configurable []string
 var ast *AST
 var currentTableAst *TabelAST
 
@@ -56,8 +56,10 @@ func Parse(localTokenizer *Tokenizer) (*AST, error) {
 		"reference":      parseReferenceAttr,
 	}
 
+	configurable = []string{"provider", "url"}
+
 	tok := tokenizer.NextToken()
-	ast = &AST{"sqlite", []*TabelAST{}}
+	ast = &AST{map[string]string{"provider": "sqlite"}, []*TabelAST{}}
 
 	for tok.TokenType != T_EOF {
 		if tok.TokenType == T_TABLE {
@@ -66,6 +68,11 @@ func Parse(localTokenizer *Tokenizer) (*AST, error) {
 				return nil, err
 			}
 			ast.Tables = append(ast.Tables, tableDefAst)
+		} else if tok.TokenType == T_SET {
+			err := parseSet()
+			if err != nil {
+				return nil, err
+			}
 		} else if tok.TokenType != T_EOL {
 			return nil, createError(fmt.Sprintf("Unexpected token '%s'", tok.Literal), tok.Line, tok.Col)
 		}
@@ -73,6 +80,50 @@ func Parse(localTokenizer *Tokenizer) (*AST, error) {
 	}
 
 	return ast, nil
+}
+
+func parseSet() error {
+	tok := tokenizer.NextToken()
+	if tok.TokenType == T_IDEN {
+
+		if !isConfigurable(tok.Literal) {
+			return createError(fmt.Sprintf("Unknown '%s'", tok.Literal), tok.Line, tok.Col)
+		}
+
+		configurable := tok.Literal
+
+		tok = tokenizer.NextToken()
+
+		if tok.TokenType == T_EOL {
+			return createError(
+				fmt.Sprintf("Expected value after '%s'", configurable),
+				tok.Line,
+				tok.Col,
+			)
+		} else if tok.TokenType != T_IDEN && tok.TokenType != T_STRING {
+			return createError(
+				fmt.Sprintf("Unexpected token '%s'", tok.Literal),
+				tok.Line,
+				tok.Col,
+			)
+		}
+
+		ast.Configuration[configurable] = tok.Literal
+		tokenizer.NextToken()
+	} else {
+		return createError(fmt.Sprintf("Expected identifier after 'set'"), tok.Line, tok.Col)
+	}
+
+	return nil
+}
+
+func isConfigurable(literal string) bool {
+	for _, o := range configurable {
+		if o == literal {
+			return true
+		}
+	}
+	return false
 }
 
 func parseTable() (*TabelAST, error) {

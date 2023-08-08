@@ -16,6 +16,7 @@ const (
 	//keywords
 	T_TABLE       = "table"
 	T_END         = "end"
+	T_SET         = "set"
 	T_LEFT_PAREN  = "LeftParan"
 	T_RIGHT_PAREN = "RightParan"
 	T_COMMA       = "Comma"
@@ -47,6 +48,8 @@ func getToken(literal string, line int, col int) *Token {
 		break
 	case T_END:
 		tokenType = T_END
+	case T_SET:
+		tokenType = T_SET
 	default:
 		break
 	}
