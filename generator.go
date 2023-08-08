@@ -119,7 +119,7 @@ func handleRef(ref *ReferenceAST) string {
 
 	builder.WriteString(
 		fmt.Sprintf(
-			"\tFOREIGN KEY %s REFERENCES %s(%s)",
+			"\tFOREIGN KEY (%s) REFERENCES %s(%s)",
 			ref.SourceCol,
 			ref.TargetTable,
 			ref.TargetCol,
@@ -220,6 +220,11 @@ func handleAutoIncrementAttr(attr *AttributeAST) (string, error) {
 	if len(attr.Values) > 0 {
 		return "", errors.New("Error: auto_increment takes no parameters")
 	}
+
+	if ast.Configuration["provider"] == "sqlite" {
+		return "AUTOINCREMENT", nil
+	}
+
 	return "AUTO_INCREMENT", nil
 }
 
