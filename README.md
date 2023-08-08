@@ -61,7 +61,7 @@ This will create an `output.sql` file containing the generated SQL statements.
 
 ## Supported Attributes
 
-The project supports the following attributes for table columns:
+Sql-mi supports the following attributes for table columns:
 
 - `@default`: Set the default value for the column. You can enter raw SQL like @default(\`NOW()\`) to use SQL functions.
 - `@id`: Mark the column as the primary key.
