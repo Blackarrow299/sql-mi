@@ -8,7 +8,7 @@ sql-mi is a tool designed to convert a schema for defining database tables into 
 
 ## Installation
 
-To get started, download the specific version of the Syntax-to-SQL Converter that matches your system from the [Releases](https://github.com/Blackarrow299/sql-mi/releases) section. After downloading, follow these steps to set up the tool on your system:
+To get started, download the specific version of sql-mi that matches your system from the [Releases](https://github.com/Blackarrow299/sql-mi/releases) section. After downloading, follow these steps to set up the tool on your system:
 
 1. Unzip the downloaded file.
 
@@ -17,7 +17,7 @@ To get started, download the specific version of the Syntax-to-SQL Converter tha
 3. Make the binary executable:
 
    ```bash
-   chmod +x syntax-to-sql
+   chmod +x sql-mi
    ```
 
 4. Optionally, move the binary to a directory in your system's `PATH` to make it accessible from anywhere.
@@ -54,7 +54,7 @@ end
 You can generate the corresponding SQL code by running:
 
 ```bash
-./syntax-to-sql -o output.sql schema.txt
+./sql-mi -o output.sql schema.txt
 ```
 
 This will create an `output.sql` file containing the generated SQL statements.
@@ -73,7 +73,7 @@ The project supports the following attributes for table columns:
 
 ## Supported Data Types
 
-The Syntax-to-SQL Converter supports the following data types:
+Sql-mi supports the following data types:
 
 - `int`
 - `string`
